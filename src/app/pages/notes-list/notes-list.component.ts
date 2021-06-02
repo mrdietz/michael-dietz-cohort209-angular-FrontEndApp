@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { Note } from 'src/app/shared/note.model';
 import { NotesService } from 'src/app/shared/notes.service';
 
@@ -10,14 +10,63 @@ import { NotesService } from 'src/app/shared/notes.service';
 export class NotesListComponent implements OnInit {
 
   notes: Note[] = new Array<Note>();
+  filteredNotes: Note[] = new Array<Note>();
+
+  @ViewChild('filterInput') filterInputElRef: ElementRef<HTMLInputElement> 
 
   constructor(private notesService: NotesService) { }
 
   ngOnInit(): void {
     this.notes = this.notesService.getAll();
+    this.filteredNotes = this.notes;
   }
 
-  deleteNote(id: number) {
-    this.notesService.delete(id);
+  deleteNote(note: Note) {
+    let noteId = this.notesService.getId(note);
+    this.notesService.delete(noteId);
+    this.filter(this.filterInputElRef.nativeElement.value);
+  }
+
+  generateNoteURL(note: Note) {
+    let noteId = this.notesService.getId(note);
+    return noteId;
+  }
+
+  filter(query: string) {
+    // clean up search term by making all lowercase and removing whitespace on ends
+    query = query.toLowerCase().trim();
+
+    let allResults: Note[] =  new Array<Note>();
+    // split up query into individual words
+    let terms: string[] = query.split(' ');
+    terms = this.removeDuplicates(terms);
+    terms.forEach(term => {
+      let results: Note[] = this.relevantNotes(term);
+      allResults = [...allResults, ...results ]
+    });
+
+    let uniqueResults = this.removeDuplicates(allResults);
+    this.filteredNotes = uniqueResults;
+  }
+
+  removeDuplicates(arr: Array<any>) : Array<any> {
+    let uniqueResults: Set<any> = new Set<any>();
+    arr.forEach(e => uniqueResults.add(e));
+    return Array.from(uniqueResults);
+  }
+
+  relevantNotes(query: string) : Array<Note> {
+    query = query.toLowerCase().trim();
+    let relevantNotes = this.notes.filter(note => {
+      if (note.title && note.title.toLowerCase().includes(query)) {
+        return true;
+      }
+      if (note.body && note.body.toLowerCase().includes(query)) {
+        return true;
+      }
+      return false;
+    })
+
+    return relevantNotes
   }
 }
